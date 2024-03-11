@@ -1,0 +1,105 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Variable.UDT.uBrowser.Define("sJob",String,Job)
+Variable.UDT.uBrowser.Define("sSuffix",String,Suffix)
+Variable.UDT.uBrowser.Define("sFlag",String,Flag_WO_Prtd)
+Variable.UDT.uBrowser.Define("sPart",String,Part)
+Variable.UDT.uBrowser.Define("sRev",String,Rev)
+Variable.UDT.uBrowser.Define("sDesc",String,Description)
+Variable.UDT.uBrowser.Define("sDate",Date,Date_Due)
+Variable.UDT.uBrowser.Define("sLink",String,Link_ID)
+Variable.uGlobal.uBrowser.Declare("uBrowser")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Created 9/25/14 for Laser Fabrication & Machine Co by SKT
+'Quote 6053 for a custom Work Order Browser.
+'This browser will inform the user if the part has any linked documents by adding a column call linked.
+'In this column a "Y" will be present if the part has any linked documents.
+
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sTitles.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.sAlign.Declare(String)
+V.Local.sFormat.Declare(String)
+V.Local.iWidths.Declare(Long)
+V.Local.iCount.Declare(Long)
+'Override variable
+V.Passed.777777.Set(1)
+
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+V.Local.sSql.Set("Select v_Job_Header.Job, v_Job_Header.Suffix, v_Job_Header.Flag_WO_Prtd, v_Job_Header.Description, substring(v_Job_Header.Part, 1, 17) as Part, substring(v_Job_Header.Part, 18, 3) as Rev, v_Job_Header.Date_Due, Link_Data.Link_ID from v_Job_Header Left Join Link_Data on v_Job_Header.Part=Link_Data.ID Order by v_Job_Header.Job")
+
+F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+F.Intrinsic.Variable.LoadUDTFromRecordset("conx","rst","v.uGlobal.uBrowser",False)
+F.ODBC.conx!rst.Close
+
+'Check to see if there is a link ID if there is then Change to Y else leave blank
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uBrowser.UBound,1)
+	F.Intrinsic.Control.If(V.uGlobal.uBrowser(v.Local.iCount)!sLink,<>,"")
+		V.uGlobal.uBrowser(v.Local.iCount)!sLink.Set("Y")
+	F.Intrinsic.Control.Else
+		V.uGlobal.uBrowser(v.Local.iCount)!sLink.Set(" ")
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iCount)
+
+F.Intrinsic.String.Split("Job*!*Suffix*!*Printed*!*Description*!*Part*!*Rev*!*Date Due*!*Linked","*!*",V.Local.sTitles)
+F.Intrinsic.String.Split("1000*!*700*!*400*!*2000*!*1500*!*500*!*1000*!*600","*!*",V.Local.iWidths)
+F.Intrinsic.String.Split("6*!*6*!*6*!*6*!*6*!*6*!*6*!*6","*!*",V.Local.sAlign)
+F.Intrinsic.String.Split("*!**!**!**!**!**!**!*","*!*",V.Local.sFormat)
+F.Intrinsic.UI.SetBrowserOOT(True)
+F.Intrinsic.Variable.UDTToString(v.uGlobal.uBrowser,"sJob*!*sSuffix*!*sFlag*!*sDesc*!*sPart*!*sRev*!*sDate*!*sLink","!*!","*!*",v.Local.sRet)
+F.Intrinsic.UI.BrowserFromString("Select Work Order",V.Local.sRet,"*!*","!*!",V.Local.sTitles,V.Local.iWidths,9200,7000,V.Local.sFormat,V.local.sAlign,V.Local.sRet)
+F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+F.Intrinsic.Control.If(V.Local.sRet,<>,"***CANCEL***")
+		V.Passed.000003.Set(V.Local.sRet(0).Trim)
+		V.Passed.000004.Set(V.Local.sRet(1).Trim)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4025_LAS_WO_Browser.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+F.ODBC.Connection!conx.Close
+
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4025_LAS_WO_Browser.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Unload.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_4025_LAS_WO_Browser$}$SKT$}$9/24/2014
+${$1$}$$}$$}$0$}$16672$}$Work Order Browser Hook$}$5/16/2016 10:30:22 AM$}$(Program: JB0010GI  ; Screen: JBS0010  )
+
+Program.Sub.Comments.End
+
